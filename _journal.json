@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789656645036,
+      "tag": "0000_careful_nehzno",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789678563058,
+      "tag": "0001_broad_inertia",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789678904212,
+      "tag": "0002_wakeful_omega_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789679749778,
+      "tag": "0003_fat_darkstar",
+      "breakpoints": true
+    }
+  ]
+}

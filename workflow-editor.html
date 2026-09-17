@@ -1,0 +1,97 @@
+<div id="bs-workflow-editor">
+  <style>
+    #bs-workflow-editor{color:var(--foreground);font-family:inherit}
+    #bs-workflow-editor *{box-sizing:border-box}
+    #bs-workflow-editor .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+    #bs-workflow-editor .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+    #bs-workflow-editor .tab{border:1px solid var(--border);background:var(--background);color:var(--foreground);padding:7px 10px;border-radius:8px;font:inherit}
+    #bs-workflow-editor .tab[aria-selected="true"]{background:var(--primary);color:var(--primary-foreground)}
+    #bs-workflow-editor .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+    #bs-workflow-editor .workspace{display:grid;grid-template-columns:minmax(0,1fr) 238px;gap:12px}
+    #bs-workflow-editor .canvas-wrap{position:relative;height:650px;overflow:auto;border:1px solid var(--border);border-radius:12px;background-color:var(--background);background-image:radial-gradient(var(--border) 1px,transparent 1px);background-size:18px 18px}
+    #bs-workflow-editor .canvas{position:relative;width:1180px;height:620px}
+    #bs-workflow-editor .edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+    #bs-workflow-editor .edge{fill:none;stroke:var(--muted-foreground);stroke-width:2}
+    #bs-workflow-editor .node{position:absolute;width:164px;min-height:66px;padding:10px 12px;border:1px solid var(--border);border-left:5px solid var(--viz-series-1);border-radius:10px;background:var(--card);color:var(--card-foreground);box-shadow:0 2px 8px color-mix(in srgb,var(--foreground) 10%,transparent);touch-action:none;user-select:none}
+    #bs-workflow-editor .node[data-type="agent"]{border-left-color:var(--viz-series-2)}
+    #bs-workflow-editor .node[data-type="decision"]{border-left-color:var(--viz-series-3)}
+    #bs-workflow-editor .node[data-type="store"]{border-left-color:var(--viz-series-4)}
+    #bs-workflow-editor .node[data-type="privacy"]{border-left-color:var(--viz-series-5)}
+    #bs-workflow-editor .node.selected{outline:3px solid var(--ring)}
+    #bs-workflow-editor .node.connecting{outline:3px solid var(--orange)}
+    #bs-workflow-editor .node-type{color:var(--muted-foreground);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+    #bs-workflow-editor .node-label{font-size:13px;font-weight:500;line-height:1.25}
+    #bs-workflow-editor .port{position:absolute;right:-7px;top:27px;width:12px;height:12px;border-radius:50%;background:var(--card);border:2px solid var(--muted-foreground)}
+    #bs-workflow-editor .side{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--card);color:var(--card-foreground)}
+    #bs-workflow-editor .side h3{margin:0 0 10px}
+    #bs-workflow-editor .field{display:block;margin:12px 0}
+    #bs-workflow-editor .field span{display:block;font-size:12px;color:var(--muted-foreground);margin-bottom:5px}
+    #bs-workflow-editor input,#bs-workflow-editor select,#bs-workflow-editor textarea{width:100%;border:1px solid var(--input);border-radius:8px;background:var(--background);color:var(--foreground);padding:9px;font:inherit}
+    #bs-workflow-editor textarea{min-height:92px;resize:vertical}
+    #bs-workflow-editor .help{font-size:12px;line-height:1.5;color:var(--muted-foreground)}
+    #bs-workflow-editor .status{min-height:20px;font-size:12px;color:var(--muted-foreground)}
+    @media(max-width:760px){#bs-workflow-editor .workspace{grid-template-columns:1fr}#bs-workflow-editor .canvas-wrap{height:540px}#bs-workflow-editor .side{order:-1}}
+  </style>
+  <div class="topbar">
+    <div><h2 style="margin:0">Bermuda Saver workflow editor</h2><div class="status" id="bs-status" aria-live="polite">Drag nodes, select one to edit, or connect two nodes.</div></div>
+    <div class="toolbar">
+      <button class="btn" id="bs-add" type="button">Add node</button>
+      <button class="btn" id="bs-connect" type="button" aria-pressed="false">Connect nodes</button>
+      <button class="btn" id="bs-delete" type="button">Delete selected</button>
+      <button class="btn" id="bs-import" type="button">Import JSON</button>
+      <button class="btn btn-primary" id="bs-export" type="button">Export JSON</button>
+      <input id="bs-file" type="file" accept="application/json" hidden>
+    </div>
+  </div>
+  <div class="tabs" id="bs-tabs" role="tablist" aria-label="Workflows"></div>
+  <div class="workspace">
+    <div class="canvas-wrap"><div class="canvas" id="bs-canvas"><svg class="edges" id="bs-edges" aria-hidden="true"></svg></div></div>
+    <aside class="side" aria-label="Node editor">
+      <h3>Selected node</h3>
+      <div id="bs-empty" class="help">Choose a node to edit its label, type and implementation notes.</div>
+      <div id="bs-form" hidden>
+        <label class="field"><span>Label</span><input id="bs-label"></label>
+        <label class="field"><span>Type</span><select id="bs-type"><option>trigger</option><option>action</option><option>agent</option><option>decision</option><option>store</option><option>privacy</option></select></label>
+        <label class="field"><span>Implementation notes</span><textarea id="bs-notes"></textarea></label>
+      </div>
+      <hr>
+      <div class="help"><b>Editing</b><br>Changes save in this browser. Export JSON to share the design or turn it into implementation tickets. In Connect mode, click the source node and then the destination.</div>
+    </aside>
+  </div>
+  <script>
+  (()=>{
+    const root=document.getElementById('bs-workflow-editor');
+    const seed={
+      identity:{name:'Identity & consent',nodes:[['i1','Visit Bermuda Saver','trigger',35,70],['i2','Register / sign in','action',245,70],['i3','Show PIPA notice','privacy',455,70],['i4','Capture purpose consent','privacy',665,70],['i5','Create shopper profile','store',875,70],['i6','Assign shopper / retailer role','decision',875,210],['i7','Privacy preferences','privacy',665,210]],edges:[['i1','i2'],['i2','i3'],['i3','i4'],['i4','i5'],['i5','i6'],['i6','i7']]},
+      shelf:{name:'Shelf-price submission',nodes:[['s1','Tap Submit price','trigger',30,75],['s2','Photograph shelf tag','action',230,75],['s3','Choose supermarket & category','action',430,75],['s4','Attach GPS / what3words','action',630,75],['s5','Upload privately','store',830,75],['s6','Read product, size & price','agent',830,225],['s7','Fraud & duplicate checks','decision',630,225],['s8','Human verification queue','action',430,225],['s9','Publish price observation','store',230,225],['s10','Award verified points','action',30,225]],edges:[['s1','s2'],['s2','s3'],['s3','s4'],['s4','s5'],['s5','s6'],['s6','s7'],['s7','s8'],['s8','s9'],['s9','s10']]},
+      receipt:{name:'Receipt scanning',nodes:[['r1','Photograph receipt','trigger',30,65],['r2','Prompt to cover payment details','privacy',235,65],['r3','Upload encrypted original','store',440,65],['r4','Hash duplicate check','decision',645,65],['r5','OCR receipt','agent',850,65],['r6','Extract store, date & total','agent',850,220],['r7','Extract line items & discounts','agent',645,220],['r8','Match product catalogue','agent',440,220],['r9','Anomaly / fraud score','decision',235,220],['r10','Verify or review','decision',30,220],['r11','Create de-identified prices','store',235,375],['r12','Award receipt points','action',440,375],['r13','Apply raw-image retention rule','privacy',645,375]],edges:[['r1','r2'],['r2','r3'],['r3','r4'],['r4','r5'],['r5','r6'],['r6','r7'],['r7','r8'],['r8','r9'],['r9','r10'],['r10','r11'],['r11','r12'],['r11','r13']]},
+      collector:{name:'Retailer price agents',nodes:[['c1','Scheduled collector run','trigger',30,80],['c2','Load retailer adapter','agent',235,80],['c3','Read public catalogue','agent',440,80],['c4','Parse product, size & price','agent',645,80],['c5','Normalise units & category','agent',850,80],['c6','Compare with prior snapshot','decision',850,235],['c7','Flag jumps / missing fields','decision',645,235],['c8','Quality review','action',440,235],['c9','Store source-linked observation','store',235,235],['c10','Update Price Watch','action',30,235]],edges:[['c1','c2'],['c2','c3'],['c3','c4'],['c4','c5'],['c5','c6'],['c6','c7'],['c7','c8'],['c8','c9'],['c9','c10']]},
+      offers:{name:'Retailer offers',nodes:[['o1','Retailer registration','trigger',30,70],['o2','Verify retailer identity','decision',235,70],['o3','Create campaign','action',440,70],['o4','Set dates, value & point cost','action',645,70],['o5','Choose privacy-safe audience','privacy',850,70],['o6','Approve & publish','decision',850,225],['o7','Match eligible shoppers','agent',645,225],['o8','Present dynamic offer','action',440,225],['o9','Redeem code / voucher','action',235,225],['o10','Settle points & report aggregate','store',30,225]],edges:[['o1','o2'],['o2','o3'],['o3','o4'],['o4','o5'],['o5','o6'],['o6','o7'],['o7','o8'],['o8','o9'],['o9','o10']]},
+      consumer:{name:'Saver Agent',nodes:[['a1','Question or saved alert','trigger',30,70],['a2','Check user permission','privacy',235,70],['a3','Retrieve verified prices','store',440,70],['a4','Retrieve optional basket history','store',645,70],['a5','Reason over grounded data','agent',850,70],['a6','Answer with sources & limits','agent',850,225],['a7','Recommend cheaper basket','agent',645,225],['a8','Detect habit / price change','agent',440,225],['a9','Create alert schedule','action',235,225],['a10','Send weekly summary / alert','action',30,225]],edges:[['a1','a2'],['a2','a3'],['a2','a4'],['a3','a5'],['a4','a5'],['a5','a6'],['a6','a7'],['a7','a8'],['a8','a9'],['a9','a10']]},
+      index:{name:'Price Index & analytics',nodes:[['x1','Verified observations','trigger',30,70],['x2','Remove personal identifiers','privacy',235,70],['x3','Normalise quantity & category','agent',440,70],['x4','Choose representative basket','decision',645,70],['x5','Calculate Price Index','agent',850,70],['x6','Run trend / volatility checks','agent',850,225],['x7','Publish consumer dashboard','action',645,225],['x8','Build licensed aggregates','store',440,225],['x9','Retail benchmark portal','action',235,225],['x10','API / report access controls','privacy',30,225]],edges:[['x1','x2'],['x2','x3'],['x3','x4'],['x4','x5'],['x5','x6'],['x6','x7'],['x6','x8'],['x8','x9'],['x9','x10']]},
+      privacy:{name:'PIPA lifecycle',nodes:[['p1','Define lawful purpose','privacy',30,65],['p2','Publish clear notice','privacy',235,65],['p3','Collect minimum data','privacy',440,65],['p4','Record consent where used','privacy',645,65],['p5','Encrypt & restrict access','privacy',850,65],['p6','Log access and transfers','privacy',850,220],['p7','Apply retention schedule','privacy',645,220],['p8','Access / correction / export','action',440,220],['p9','Withdrawal / deletion request','action',235,220],['p10','Breach detection & response','decision',30,220],['p11','Privacy Officer audit','privacy',440,375]],edges:[['p1','p2'],['p2','p3'],['p3','p4'],['p4','p5'],['p5','p6'],['p6','p7'],['p7','p8'],['p8','p9'],['p5','p10'],['p7','p11']]}
+    };
+    Object.values(seed).forEach(w=>w.nodes=w.nodes.map(n=>({id:n[0],label:n[1],type:n[2],x:n[3],y:n[4],notes:''})));
+    let state;try{state=JSON.parse(localStorage.getItem('bermuda-saver-workflows-v1'))||seed}catch(e){state=seed}
+    let active=Object.keys(state)[0],selected=null,connectMode=false,connectFrom=null,drag=null;
+    const tabs=root.querySelector('#bs-tabs'),canvas=root.querySelector('#bs-canvas'),edgesSvg=root.querySelector('#bs-edges'),status=root.querySelector('#bs-status');
+    const save=()=>localStorage.setItem('bermuda-saver-workflows-v1',JSON.stringify(state));
+    const wf=()=>state[active];
+    function renderTabs(){tabs.innerHTML='';Object.entries(state).forEach(([id,w])=>{const b=document.createElement('button');b.className='tab cursor-interaction';b.type='button';b.role='tab';b.textContent=w.name;b.setAttribute('aria-selected',String(id===active));b.onclick=()=>{active=id;selected=null;connectFrom=null;render()};tabs.appendChild(b)})}
+    function drawEdges(){edgesSvg.innerHTML='';const byId=Object.fromEntries(wf().nodes.map(n=>[n.id,n]));wf().edges.forEach(([a,b])=>{const s=byId[a],t=byId[b];if(!s||!t)return;const x1=s.x+164,y1=s.y+33,x2=t.x,y2=t.y+33,dx=Math.max(55,Math.abs(x2-x1)*.45);const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('class','edge');p.setAttribute('d',`M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`);edgesSvg.appendChild(p)})}
+    function selectNode(id){selected=id;const n=wf().nodes.find(x=>x.id===id);root.querySelector('#bs-empty').hidden=!!n;root.querySelector('#bs-form').hidden=!n;if(n){root.querySelector('#bs-label').value=n.label;root.querySelector('#bs-type').value=n.type;root.querySelector('#bs-notes').value=n.notes||''}renderNodes()}
+    function renderNodes(){canvas.querySelectorAll('.node').forEach(n=>n.remove());wf().nodes.forEach(n=>{const el=document.createElement('button');el.type='button';el.className='node cursor-interaction'+(selected===n.id?' selected':'')+(connectFrom===n.id?' connecting':'');el.dataset.id=n.id;el.dataset.type=n.type;el.style.left=n.x+'px';el.style.top=n.y+'px';el.innerHTML=`<div class="node-type">${n.type}</div><div class="node-label"></div><span class="port"></span>`;el.querySelector('.node-label').textContent=n.label;el.onpointerdown=e=>{if(connectMode)return;drag={id:n.id,dx:e.clientX-n.x,dy:e.clientY-n.y};el.setPointerCapture(e.pointerId)};el.onpointermove=e=>{if(!drag||drag.id!==n.id)return;n.x=Math.max(0,Math.min(1016,e.clientX-drag.dx));n.y=Math.max(0,Math.min(550,e.clientY-drag.dy));el.style.left=n.x+'px';el.style.top=n.y+'px';drawEdges()};el.onpointerup=()=>{if(drag){drag=null;save()}};el.onclick=()=>{if(connectMode){if(!connectFrom){connectFrom=n.id;status.textContent='Now choose the destination node.'}else if(connectFrom!==n.id){wf().edges.push([connectFrom,n.id]);connectFrom=null;connectMode=false;root.querySelector('#bs-connect').setAttribute('aria-pressed','false');status.textContent='Connection added.';save();render()}else{connectFrom=null}}else selectNode(n.id)};canvas.appendChild(el)});drawEdges()}
+    function render(){renderTabs();renderNodes();selectNode(selected)}
+    root.querySelector('#bs-label').oninput=e=>{const n=wf().nodes.find(x=>x.id===selected);if(n){n.label=e.target.value;save();renderNodes()}};
+    root.querySelector('#bs-type').onchange=e=>{const n=wf().nodes.find(x=>x.id===selected);if(n){n.type=e.target.value;save();renderNodes()}};
+    root.querySelector('#bs-notes').oninput=e=>{const n=wf().nodes.find(x=>x.id===selected);if(n){n.notes=e.target.value;save()}};
+    root.querySelector('#bs-add').onclick=()=>{const id='n'+Date.now();wf().nodes.push({id,label:'New step',type:'action',x:60,y:460,notes:''});save();selected=id;render();status.textContent='New node added.'};
+    root.querySelector('#bs-delete').onclick=()=>{if(!selected)return;wf().nodes=wf().nodes.filter(n=>n.id!==selected);wf().edges=wf().edges.filter(e=>!e.includes(selected));selected=null;save();render();status.textContent='Node deleted.'};
+    root.querySelector('#bs-connect').onclick=e=>{connectMode=!connectMode;connectFrom=null;e.currentTarget.setAttribute('aria-pressed',String(connectMode));status.textContent=connectMode?'Choose the source node.':'Connect mode cancelled.';renderNodes()};
+    root.querySelector('#bs-export').onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bermuda-saver-workflows.json';a.click();URL.revokeObjectURL(a.href);status.textContent='Workflow JSON exported.'};
+    root.querySelector('#bs-import').onclick=()=>root.querySelector('#bs-file').click();
+    root.querySelector('#bs-file').onchange=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{state=JSON.parse(reader.result);active=Object.keys(state)[0];selected=null;save();render();status.textContent='Workflow JSON imported.'}catch(err){status.textContent='That file is not valid workflow JSON.'}};reader.readAsText(file)};
+    render();
+  })();
+  </script>
+</div>

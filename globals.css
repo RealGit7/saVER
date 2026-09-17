@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "../vendor/shadcn-tailwind-4.13.0.css";
+:root { --background:#f4f7f6; --foreground:#142d2a; --primary:#087963; --primary-foreground:#fff; --border:#d8e4e1; --ring:#79b9aa; --radius:.75rem; }
+@theme inline { --color-background:var(--background); --color-foreground:var(--foreground); --color-primary:var(--primary); --color-primary-foreground:var(--primary-foreground); --color-border:var(--border); --color-ring:var(--ring); --font-sans:Arial, Helvetica, sans-serif; }
+* { box-sizing:border-box; } body { margin:0; background:var(--background); color:var(--foreground); font-family:Arial, Helvetica, sans-serif; } button, a, input, select { transition:all .16s ease; } button, select { cursor:pointer; }
+.label { display:block; font-size:.875rem; font-weight:800; color:#304e48; }.field { height:3rem; width:100%; border:1px solid #c8d8d4; border-radius:.75rem; background:#fff; padding:0 .9rem; outline:none; }.field:focus { box-shadow:0 0 0 2px #79b9aa; }
+@media (prefers-reduced-motion: reduce) { * { transition:none!important; } }
